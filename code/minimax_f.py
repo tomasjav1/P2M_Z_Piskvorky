@@ -1,15 +1,118 @@
-import time
-import sys
-import math
+# import funkci a konstant
+from sys import exit
+from math import inf
+from time import process_time
 from utility_function import utility
-from functions import get_mm_active
-from functions import show_board
+from functions_one import get_mm_active, show_board
+from constants import terminal_score, char1, char2, board_size
 
-def minimax(board,used,depth,O_turn,board_size):
+global counter  #pocitadlo prohledanych pozic
+counter=0
+
+def minimax_valueMIN(mm_board,mm_used,depth,alpha,beta):
+    #vrati hodnotu kterou ziskam optimalni tahem Min hracem, nasledovanou optimalnim tahem MAX hrace atd... 
+    # dokud se nedostanu na hloubku 0
+    #char1 je min hrac
+    
+    global counter
+    counter+=1
+    util=utility(mm_board,mm_used)  #skore
+    if depth==0:   #maximalni hloubka dosazena
+        return util
+    elif abs(util)>=terminal_score:    #konec hry ->vyhra (hrace MAX)
+        return util
+    value=inf  #infinity
+    mm_active=get_mm_active(mm_board,mm_used,board_size)    #aktivni policka
+    for move in mm_active:  
+        #pro vsechny tahy z aktivnich polickek, ziskej nejlepsi hodnotu z tahu pro Max hrace a z toho udejej min
+        mm_used.append(move)    #pridani tahu do pouzitych
+        mm_board[move[0]][move[1]]=char1    #tah
+        value=min(value,minimax_valueMAX(mm_board,mm_used,depth-1,alpha,beta))
+        mm_used.pop()   #odebrani tahu z puzitych
+        mm_board[move[0]][move[1]]="_"  #odebrani tahu
+        if value<=alpha:    #pruning
+            return value
+        beta=min(value,beta)
+    return value
+
+def minimax_valueMAX(mm_board,mm_used,depth,alpha,beta):
+    #vrati hodnotu kterou ziskam optimalni tahem MAAX hracem, nasledovanou optimalnim tahem MIN hrace atd... 
+    # dokud se nedostanu na hloubku 0
+    #char2 je max hrac
+    global counter
+    counter+=1
+    util=utility(mm_board,mm_used)
+    if depth==0:   #maximalni hloubka dosazena
+        return util
+    elif abs(util)>=terminal_score:    #konec hry ->vyhra (hrace MIN)
+        #print(util),"utility po tahu hrace MIN")
+        return util
+    value=-inf  #-infinity
+    mm_active=get_mm_active(mm_board,mm_used,board_size)
+    for move in mm_active:
+        #pro vsechny tahy z aktivnich polickek, ziskej nejlepsi hodnotu z tahu pro Min hrace a z toho udejej max
+        mm_used.append(move)    #pridani tahu do pouzitych
+        mm_board[move[0]][move[1]]=char2    #tah
+        value=max(value,minimax_valueMIN(mm_board,mm_used,depth-1,alpha,beta))
+        mm_used.pop()   #odebrani tahu z pouzitych
+        mm_board[move[0]][move[1]]="_"  #odebrani tahu
+        if value>=beta:     #pruning
+            return value
+        alpha=max(value,alpha)
+    return value
+
+def minimax_decisionMIN(mm_board,mm_used,depth,alpha,beta):
+    #vrati optimalni tah pro Min hrace 
+    #char1 je min hrac
+    global counter
+    counter+=1
+    if depth==0:   #jen kdyz je error
+        print("v decisionu nejde mit hloubku 0")
+        exit()
+    value=inf  #infinity
+    mm_active=get_mm_active(mm_board,mm_used,board_size)    #aktivni policka
+    for move in mm_active: 
+        #pro vsechny tahy z aktivnich polickek, ziskej nejlepsi tah pro Min hrace 
+        mm_used.append(move)    #pridani tahu do pouzitych
+        mm_board[move[0]][move[1]]=char1  #tah  
+        new_val=minimax_valueMAX(mm_board,mm_used,depth-1,alpha,beta)   
+        if value>new_val:       #nasel jsem lepsi tah
+            optimal_move=move   #zapamatovani (dosud) nejlepsiho tahu
+            value=new_val       #zapamatovani (dosud) nejlepsi hodnoty
+        mm_used.pop()   #odebrani tahu z pouzitych
+        mm_board[move[0]][move[1]]="_"  #odebrani tahu
+    #na konci dosud nejlepsi je opravdu nejlepsi
+    return optimal_move
+
+def minimax_decisionMAX(mm_board,mm_used,depth,alpha,beta):
+    #vrati optimalni tah pro Max hrace
+    #char2 je max hrac
+    global counter
+    counter+=1
+    if depth==0:   #jen kdyz je error
+        print("v decisionu nejde mit hloubku 0")
+        exit()
+    value=-inf  #-infinity
+    mm_active=get_mm_active(mm_board,mm_used,board_size)    #aktivni policka
+    for move in mm_active:
+        #pro vsechny tahy z aktivnich polickek, ziskej nejlepsi tah pro Max hrace
+        mm_used.append(move)    #pridani tahu do pouzitych
+        mm_board[move[0]][move[1]]=char2     #pridani tahu
+        new_val=minimax_valueMIN(mm_board,mm_used,depth-1,alpha,beta)   
+        if value<new_val:    #nasel jsem lepsi tah
+            optimal_move=move   #zapamatovani (dosud) nejlepsiho tahu
+            value=new_val       #zapamatovani (dosud) nejlepsi hodnoty
+        mm_used.pop()   #odebrani tahu z pouzitych
+        mm_board[move[0]][move[1]]="_"  #odebrani tahu
+    #na konci dosud nejlepsi je opravdu nejlepsi
+    return optimal_move
+
+def minimax(board,used,depth,char1_turn,board_size):
     global counter
     counter=0   #pocet prohledanych pozic
 
-    start_time=time.process_time()
+    start_time=process_time()   #cas startu
+
     # vytvoreni duplikace pole used a board, ktere budu pouzivat pri minimaxu,
     # nechci posilat reference ale hodnoty
     mm_used=[]
@@ -25,156 +128,25 @@ def minimax(board,used,depth,O_turn,board_size):
             row.append(j)
         mm_board.append(row)
         
-    def minimax_valueMIN(mm_board,mm_used,depth,alpha,beta):
-        global counter
-        counter+=1
-        
-        util=utility(mm_board,mm_used)
-        if depth==0:   #maximalni hloubka dosazena
-            return util
-
-        elif abs(util)>=900000:    #konec hry
-            #print(util),"utility po tahu hrace MAX")
-            return util
-
-        value=math.inf  #infinity
-        mm_active=get_mm_active(mm_board,mm_used,board_size)
-        for move in mm_active:
-            mm_used.append(move)
-            mm_board[move[0]][move[1]]="O"     #O je min hrac
-            value=min(value,minimax_valueMAX(mm_board,mm_used,depth-1,alpha,beta))
-            mm_used.pop()
-            mm_board[move[0]][move[1]]="_"
-            if value<=alpha:    #pruning
-                return value
-            beta=min(value,beta)
-
-        #print(value,na_tahu,"valueMIN")
-        return value
-
-
-    def minimax_valueMAX(mm_board,mm_used,depth,alpha,beta):
-        global counter
-        counter+=1
-
-        util=utility(mm_board,mm_used)
-        if depth==0:   #maximalni hloubka dosazena
-            return util
-
-        elif abs(util)>=900000:    #konec hry
-            #print(util),"utility po tahu hrace MIN")
-            return util
-
-        value=-math.inf  #-infinity
-        mm_active=get_mm_active(mm_board,mm_used,board_size)
-        for move in mm_active:
-            mm_used.append(move)
-            mm_board[move[0]][move[1]]="X"     #X je max hrac
-            value=max(value,minimax_valueMIN(mm_board,mm_used,depth-1,alpha,beta))
-            mm_used.pop()
-            mm_board[move[0]][move[1]]="_"
-            if value>=beta:     #pruning
-                return value
-            alpha=max(value,alpha)
-
-        #print(value,na_tahu,"valueMIN")
-        return value
-
-
-    def minimax_decisionMIN(mm_board,mm_used,depth,alpha,beta):
-        global counter
-        counter+=1
-        
-        if depth==0:   #jen kdyz je error
-            print("v decisionu nejde mit hloubku 0")
-            sys.exit()
-
-        value=math.inf  #infinity
-        mm_active=get_mm_active(mm_board,mm_used,board_size)
-        for move in mm_active:
-            mm_used.append(move)
-            mm_board[move[0]][move[1]]="O"     #O je min hrac
-            new_val=minimax_valueMAX(mm_board,mm_used,depth-1,alpha,beta)   
-            if value>new_val:    #nasel jsem lepsi tah
-                optimal_move=move
-                value=new_val
-            mm_used.pop()
-            mm_board[move[0]][move[1]]="_"
-
-
-        #print(optimalni_tah,na_tahu)
-        return optimal_move
-
-    def minimax_decisionMAX(mm_board,mm_used,depth,alpha,beta):
-        global counter
-        counter+=1
-
-        if depth==0:   #jen kdyz je error
-            print("v decisionu nejde mit hloubku 0")
-            sys.exit()
-
-        value=-math.inf  #-infinity
-        mm_active=get_mm_active(mm_board,mm_used,board_size)
-        for move in mm_active:
-            mm_used.append(move)
-            mm_board[move[0]][move[1]]="X"     #X je max hrac
-            new_val=minimax_valueMIN(mm_board,mm_used,depth-1,alpha,beta)   
-            if value<new_val:    #nasel jsem lepsi tah
-                optimal_move=move
-                value=new_val
-            mm_used.pop()
-            mm_board[move[0]][move[1]]="_"
-        #print(optimalni_tah,na_tahu)
-        return optimal_move
-
-
-
-    print("nejlepsi tah podle minimaxu s hloubkou",depth,"pro",end=" ")
-    if O_turn==True:
-        print("O")
-        mm_move=minimax_decisionMIN(mm_board,mm_used,depth,-math.inf,math.inf)
-        mm_board[mm_move[0]][mm_move[1]]="O"
+    print("nejlepsi tah podle minimaxu pro",end=" ")
+    if char1_turn==True:
+        print(char1)    
+        mm_move=minimax_decisionMIN(mm_board,mm_used,depth,-inf,inf)  #char1 je Min hrac
+        mm_board[mm_move[0]][mm_move[1]]=char1
     else:
-        print("X")
-        mm_move=minimax_decisionMAX(mm_board,mm_used,depth,-math.inf,math.inf)
-        mm_board[mm_move[0]][mm_move[1]]="X"
+        print(char2)
+        mm_move=minimax_decisionMAX(mm_board,mm_used,depth,-inf,inf) #char2 je Max hrac
+        mm_board[mm_move[0]][mm_move[1]]=char2
     #print(mm_move)
-    #print("hraci plocha po tahu")
-    #show_board(mm_board,15)
-        
-    print("COUNTER:",counter)
-    end_time=time.process_time()
-    print("CAS: ","%.5f" % (end_time-start_time))
+ 
+    #print("COUNTER:",counter)
+    end_time=process_time() #cas konce
+    #print("CAS: ","%.5f" % (end_time-start_time))  #uplynuly tah
 
-    return mm_move
-
-
-
-def test_minimax_f(depth):
-    #minimax-f tests
-    boardS=15
-    from functions import show_board
-    # nacteni pole ze souboru/inputu
-    board=[["_" for i in range(boardS+2)] for i in range(boardS+2)]
-    for i in range(boardS+2):
-        line=input()
-        for j in range(boardS+2):
-            board[i][j]=line[j]
-
-    used=[] # used se normalne buduje behem hry
-    for i in range(1,boardS+1):
-        for j in range(1,boardS+1):
-            if board[i][j]=="O" or board[i][j]=="X":
-                used.append([i,j])
-
-    show_board(board,boardS)
-    minimax(board,used,depth,True)
-
-#test_minimax_f(2)   #DEPTH MUSI BYT SUDE DELKY aby neprohral v dalsim tahu #TODO upravit i na liche
+    return mm_move  #vrati nejlepsi tah
 
 # Get-content test.txt | python minimax_f.py
 # python minimax.py
-
 
 # TODO HEURISTIKY
 # TODO ohodnotit policka ktere mam proheledat nejdriv aby bylo alfa-beta pruning co nejefektivnejsi (zavisi na poradi)
